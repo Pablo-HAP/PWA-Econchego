@@ -1,0 +1,201 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------- ENUMS ----------
+// ---------- ENUMS ----------
+enum Role {
+  USER
+  ADMIN
+}
+
+enum ContentType {
+  TEXT
+  VIDEO
+}
+
+enum Stage {
+  PRENATAL
+  PARTO
+  POSPARTO
+  PRIMEIRO_ANO
+}
+
+enum ChecklistKind {
+  CONSULTA
+  EXAME
+  VACINA
+}
+
+enum ChecklistTarget {
+  MAE
+  BEBE
+}
+
+enum QuestionStatus {
+  PENDING
+  ANSWERED
+}
+
+enum BugStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+}
+
+// ---------- USUÁRIA ----------
+model User {
+  id             String    @id @default(cuid())
+  name           String
+  email          String    @unique
+  passwordHash   String
+  role           Role      @default(USER)
+  dueDate        DateTime? // data prevista do parto (fase grávida)
+  birthDate      DateTime? // data de nascimento do bebê (fase mãe)
+  ubsReference   String? // opcional: UBS de referência, para métricas agregadas
+  consentAt      DateTime // LGPD: quando aceitou
+  consentVersion String // versão do termo aceito
+  createdAt      DateTime  @default(now())
+
+  progress  ContentProgress[]
+  checklist UserChecklist[]
+  badges    UserBadge[]
+  questions Question[]
+  feedbacks Feedback[]
+}
+
+// ---------- CONTEÚDO ----------
+model Category {
+  id       String    @id @default(cuid())
+  name     String
+  slug     String    @unique
+  contents Content[]
+}
+
+model Content {
+  id          String      @id @default(cuid())
+  title       String
+  summary     String
+  body        String? // texto em Markdown
+  videoUrl    String? // link do YouTube
+  type        ContentType
+  stage       Stage
+  weekStart   Int? // PRENATAL e PARTO: semana de gestação (1 a 42)
+  weekEnd     Int?
+  monthStart  Int? // POSPARTO e PRIMEIRO_ANO: mês de vida (0 a 12)
+  monthEnd    Int?
+  published   Boolean     @default(false)
+  validated   Boolean     @default(false)
+  validatedBy String? // nome e registro do profissional
+  validatedAt DateTime?
+  categoryId  String
+  category    Category    @relation(fields: [categoryId], references: [id])
+  createdAt   DateTime    @default(now())
+
+  progress  ContentProgress[]
+  feedbacks Feedback[]
+
+  @@index([stage, weekStart, weekEnd])
+  @@index([stage, monthStart, monthEnd])
+}
+
+model ContentProgress {
+  id          String   @id @default(cuid())
+  userId      String
+  contentId   String
+  completedAt DateTime @default(now())
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content     Content  @relation(fields: [contentId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, contentId])
+}
+
+// ---------- CHECKLIST (consultas, exames, vacinas) ----------
+model ChecklistItem {
+  id          String          @id @default(cuid())
+  title       String
+  description String
+  kind        ChecklistKind
+  target      ChecklistTarget
+  weekStart   Int? // itens da gestação
+  weekEnd     Int?
+  monthStart  Int? // itens do bebê
+  monthEnd    Int?
+  users       UserChecklist[]
+}
+
+model UserChecklist {
+  id          String        @id @default(cuid())
+  userId      String
+  itemId      String
+  done        Boolean       @default(false)
+  doneAt      DateTime?
+  scheduledAt DateTime?
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  item        ChecklistItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, itemId])
+}
+
+// ---------- INCENTIVO ----------
+model Badge {
+  id          String      @id @default(cuid())
+  code        String      @unique // "FIRST_CONTENT", "FIRST_CONSULT"...
+  title       String
+  description String
+  icon        String // emoji ou nome do ícone
+  users       UserBadge[]
+}
+
+model UserBadge {
+  id       String   @id @default(cuid())
+  userId   String
+  badgeId  String
+  earnedAt DateTime @default(now())
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge    Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, badgeId])
+}
+
+// ---------- INTERAÇÃO ----------
+model Question {
+  id         String         @id @default(cuid())
+  userId     String
+  text       String
+  answer     String?
+  answeredAt DateTime?
+  status     QuestionStatus @default(PENDING)
+  createdAt  DateTime       @default(now())
+  user       User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Feedback {
+  id        String   @id @default(cuid())
+  userId    String
+  rating    Int // 1 a 5 (validar no Zod)
+  comment   String?
+  contentId String?
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  content   Content? @relation(fields: [contentId], references: [id], onDelete: SetNull)
+}
+
+model BugReport {
+  id          String    @id @default(cuid())
+  title       String
+  description String
+  status      BugStatus @default(OPEN)
+  createdAt   DateTime  @default(now())
+  resolvedAt  DateTime?
+}
