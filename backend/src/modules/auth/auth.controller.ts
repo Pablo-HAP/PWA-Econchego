@@ -1,108 +1,38 @@
-import type { FastifyReply, FastifyRequest } from 'fastify';
-import { ZodError } from 'zod';
-import { loginSchema, registerSchema } from './auth.schemas';
-import { getAuthenticatedUser, loginUser, registerUser } from './auth.service';
-import type { JwtPayload } from './auth.types';
+import type { FastifyReply, FastifyRequest } from "fastify";
+import { loginSchema, registerSchema } from "./auth.schemas";
+import { getAuthenticatedUser, loginUser, registerUser } from "./auth.service";
+import type { AuthResponse, AuthUser } from "./auth.types";
 
-const fieldLabels: Record<string, string> = {
-	name: 'nome',
-	email: 'e-mail',
-	password: 'senha',
-	phone: 'telefone',
-};
-
-const formatValidationIssue = (path: Array<string | number>, message: string, code: string) => {
-	const field = path[0];
-	const fieldName = typeof field === 'string' ? fieldLabels[field] ?? field : null;
-
-	if (message && message !== 'Invalid input') {
-		return message;
-	}
-
-	if (code === 'invalid_type' && fieldName) {
-		return `O campo ${fieldName} é obrigatório.`;
-	}
-
-	if (code === 'too_small' && field === 'password') {
-		return 'A senha deve ter no mínimo 6 caracteres.';
-	}
-
-	if (code === 'too_small' && field === 'name') {
-		return 'O nome deve ter no mínimo 2 caracteres.';
-	}
-
-	if (code === 'too_small' && field === 'phone') {
-		return 'O telefone deve ter no mínimo 8 caracteres.';
-	}
-
-	if ((code === 'invalid_format' || code === 'invalid_string') && field === 'email') {
-		return 'Informe um e-mail válido.';
-	}
-
-	return 'Verifique os dados informados.';
-};
-
-const handleValidationError = (error: ZodError, reply: FastifyReply) => {
-	const message = error.issues.map((issue) => formatValidationIssue(issue.path, issue.message, issue.code)).join(' ');
-
-	return reply.code(400).send({
-		message: message || 'Verifique os dados informados.',
+// O token é assinado aqui, no controller, porque é ele que conhece o reply.
+// O service só cuida de regra de negócio e banco.
+const buildAuthResponse = async (reply: FastifyReply, user: AuthUser): Promise<AuthResponse> => {
+	const accessToken = await reply.jwtSign({
+		sub: user.id,
+		email: user.email,
+		role: user.role,
 	});
-};
 
-const handleAuthError = (error: unknown, reply: FastifyReply) => {
-	if (error instanceof ZodError) {
-		return handleValidationError(error, reply);
-	}
-
-	if (!(error instanceof Error)) {
-		throw error;
-	}
-
-	switch (error.message) {
-		case 'E-mail já cadastrado.':
-			return reply.code(409).send({ message: error.message });
-		case 'Credenciais inválidas.':
-			return reply.code(401).send({ message: error.message });
-		case 'Usuário não encontrado.':
-			return reply.code(404).send({ message: error.message });
-		default:
-			throw error;
-	}
-};
-
-const login = async (request: FastifyRequest, reply: FastifyReply) => {
-	try {
-		const body = loginSchema.parse(request.body);
-		const auth = await loginUser(body, reply.jwtSign.bind(reply));
-
-		return reply.send(auth);
-	} catch (error) {
-		return handleAuthError(error, reply);
-	}
+	return { accessToken, user };
 };
 
 const register = async (request: FastifyRequest, reply: FastifyReply) => {
-	try {
-		const body = registerSchema.parse(request.body);
-		const auth = await registerUser(body, reply.jwtSign.bind(reply));
+	const body = registerSchema.parse(request.body);
+	const user = await registerUser(body);
 
-		return reply.code(201).send(auth);
-	} catch (error) {
-		return handleAuthError(error, reply);
-	}
+	return reply.code(201).send(await buildAuthResponse(reply, user));
+};
+
+const login = async (request: FastifyRequest, reply: FastifyReply) => {
+	const body = loginSchema.parse(request.body);
+	const user = await loginUser(body);
+
+	return reply.send(await buildAuthResponse(reply, user));
 };
 
 const me = async (request: FastifyRequest, reply: FastifyReply) => {
-	try {
-		await request.jwtVerify();
-		const payload = request.user as JwtPayload;
-		const user = await getAuthenticatedUser(payload.sub);
+	const user = await getAuthenticatedUser(request.user.sub);
 
-		return reply.send({ user });
-	} catch (error) {
-		return handleAuthError(error, reply);
-	}
+	return reply.send({ user });
 };
 
 export { login, register, me };
