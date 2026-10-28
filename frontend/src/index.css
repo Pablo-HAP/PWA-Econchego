@@ -1,0 +1,100 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+@import '@fontsource-variable/nunito';
+
+@custom-variant dark (&:is(.dark *));
+
+/* Paleta tirada da identidade do projeto (slides e logo). Confirmar os hex com o arquivo da logo. */
+:root {
+  --radius: 0.875rem;
+  --background: #fffbf1;
+  --foreground: #2b2a26;
+  --card: #ffffff;
+  --card-foreground: #2b2a26;
+  --popover: #ffffff;
+  --popover-foreground: #2b2a26;
+  /* Azul-petróleo nos botões principais: contraste ~7,5:1 com texto branco */
+  --primary: #0b5a7e;
+  --primary-foreground: #ffffff;
+  --secondary: #f3ebd9;
+  --secondary-foreground: #3a392c;
+  --muted: #f6f0e0;
+  --muted-foreground: #6b6a5e;
+  --accent: #fbe3cf;
+  --accent-foreground: #7a3e0b;
+  --destructive: #c0392b;
+  --border: #e8dfc8;
+  --input: #ddd2b6;
+  --ring: #0b5a7e;
+  --sidebar: #f6f0e0;
+  --sidebar-foreground: #2b2a26;
+  --sidebar-primary: #0b5a7e;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #ece3cc;
+  --sidebar-accent-foreground: #2b2a26;
+  --sidebar-border: #e8dfc8;
+  --sidebar-ring: #0b5a7e;
+}
+
+@theme inline {
+  --font-sans: 'Nunito Variable', ui-sans-serif, system-ui, sans-serif;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Cores da marca, para selos, ilustrações e destaques */
+  --color-brand-olive: #7d8b4e;
+  --color-brand-orange: #ee8434;
+  --color-brand-coral: #e5726e;
+  --color-brand-blue: #0b5a7e;
+  --color-brand-brown: #bf7b30;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+    min-height: 100dvh;
+  }
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+}
