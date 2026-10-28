@@ -9,9 +9,9 @@ const list = async (request: FastifyRequest, reply: FastifyReply) => {
 const update = async (request: FastifyRequest, reply: FastifyReply) => {
 	const { itemId } = itemParamsSchema.parse(request.params);
 	const body = updateChecklistSchema.parse(request.body);
-	const item = await updateChecklistItem(request.user.sub, itemId, body);
+	const { item, newBadges } = await updateChecklistItem(request.user.sub, itemId, body);
 
-	return reply.send({ item });
+	return reply.send({ item, newBadges });
 };
 
 export { list, update };

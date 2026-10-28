@@ -2,6 +2,7 @@ import type { Prisma } from "../../../generated/prisma/client";
 import { AppError } from "../../lib/errors";
 import { getPhaseForUser } from "../../lib/pregnancy";
 import { prisma } from "../../lib/prisma";
+import { awardBadges } from "../badges/badges.service";
 import type { ChecklistStatus, UpdateChecklistInput } from "./checklist.types";
 
 const computeStatus = (
@@ -78,7 +79,7 @@ const listChecklist = async (userId: string) => {
 };
 
 // Marca como feito e/ou agenda. Só altera o que veio no corpo da requisição.
-// Na Fase 4, é aqui que entra a chamada de awardBadges(userId).
+// newBadges traz os selos conquistados agora (só confere quando o item foi marcado como feito).
 const updateChecklistItem = async (
 	userId: string,
 	itemId: string,
@@ -103,12 +104,16 @@ const updateChecklistItem = async (
 		data.scheduledAt = input.scheduledAt;
 	}
 
-	return prisma.userChecklist.upsert({
+	const updated = await prisma.userChecklist.upsert({
 		where: { userId_itemId: { userId, itemId } },
 		update: data,
 		create: { userId, itemId, ...data },
 		select: { itemId: true, done: true, doneAt: true, scheduledAt: true },
 	});
+
+	const newBadges = input.done ? await awardBadges(userId) : [];
+
+	return { item: updated, newBadges };
 };
 
 export { listChecklist, updateChecklistItem };
