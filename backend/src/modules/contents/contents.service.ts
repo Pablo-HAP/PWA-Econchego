@@ -1,8 +1,10 @@
 import type { Prisma } from "../../../generated/prisma/client";
 import { AppError } from "../../lib/errors";
-import { getPhaseForUser } from "../../lib/pregnancy";
+import { getPhaseForUser, type UserPhase } from "../../lib/pregnancy";
 import { prisma } from "../../lib/prisma";
 import type { ListContentsQuery } from "./contents.types";
+
+type ActivePhase = Exclude<UserPhase, { kind: "UNKNOWN" }>;
 
 // Campos da listagem (sem o texto completo, para a lista ficar leve).
 // "progress" traz só o registro da própria usuária, para saber se ela já concluiu.
@@ -27,6 +29,23 @@ const contentOrder: Prisma.ContentOrderByWithRelationInput[] = [
 	{ monthStart: "asc" },
 	{ title: "asc" },
 ];
+
+// Conteúdo publicado que vale para a fase da usuária.
+// Também é usado pelo selo "Semana em dia".
+const buildPhaseContentWhere = (phase: ActivePhase): Prisma.ContentWhereInput =>
+	phase.kind === "PREGNANT"
+		? {
+				published: true,
+				stage: { in: ["PRENATAL", "PARTO"] },
+				weekStart: { lte: phase.week },
+				weekEnd: { gte: phase.week },
+			}
+		: {
+				published: true,
+				stage: { in: ["POSPARTO", "PRIMEIRO_ANO"] },
+				monthStart: { lte: phase.months },
+				monthEnd: { gte: phase.months },
+			};
 
 // Troca a lista "progress" por um simples completed: true/false
 const toItem = <T extends { progress: { id: string }[] }>(row: T) => {
@@ -71,23 +90,8 @@ const listContentsForUser = async (userId: string) => {
 		return { phase, contents: [] };
 	}
 
-	const where: Prisma.ContentWhereInput =
-		phase.kind === "PREGNANT"
-			? {
-					published: true,
-					stage: { in: ["PRENATAL", "PARTO"] },
-					weekStart: { lte: phase.week },
-					weekEnd: { gte: phase.week },
-				}
-			: {
-					published: true,
-					stage: { in: ["POSPARTO", "PRIMEIRO_ANO"] },
-					monthStart: { lte: phase.months },
-					monthEnd: { gte: phase.months },
-				};
-
 	const rows = await prisma.content.findMany({
-		where,
+		where: buildPhaseContentWhere(phase),
 		select: listSelect(userId),
 		orderBy: contentOrder,
 	});
@@ -113,4 +117,4 @@ const getContentById = async (userId: string, id: string) => {
 	return toItem(row);
 };
 
-export { getContentById, listContents, listContentsForUser };
+export { buildPhaseContentWhere, getContentById, listContents, listContentsForUser };
